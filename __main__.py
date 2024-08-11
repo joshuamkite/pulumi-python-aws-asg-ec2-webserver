@@ -38,17 +38,28 @@ security_group = aws.ec2.SecurityGroup("security-group",
     )
 
 # Add HTTPS ingress rule to the security group
-aws.ec2.SecurityGroupRule("https-ingress",
-    security_group_id=security_group.id,
-    protocol="tcp",
-    from_port=443,
-    to_port=443,
-    cidr_blocks=["0.0.0.0/0"],
-    opts=pulumi.ResourceOptions(provider=provider),
-    type="ingress"
-    )
+if variables.create_dns_record:
+    aws.ec2.SecurityGroupRule("https-ingress",
+        security_group_id=security_group.id,
+        protocol="tcp",
+        from_port=443,
+        to_port=443,
+        cidr_blocks=["0.0.0.0/0"],
+        opts=pulumi.ResourceOptions(provider=provider),
+        type="ingress"
+        )
 
-
+# Add HTTP ingress rule to the security group
+if not variables.create_dns_record:
+    aws.ec2.SecurityGroupRule("http-ingress",
+        security_group_id=security_group.id,
+        protocol="tcp",
+        from_port=80,
+        to_port=80,
+        cidr_blocks=["0.0.0.0/0"],
+        opts=pulumi.ResourceOptions(provider=provider),
+        type="ingress"
+        )
 
 # Add egress rule to the security group
 aws.ec2.SecurityGroupRule("egress",
@@ -240,66 +251,84 @@ target_group = aws_native.elasticloadbalancingv2.TargetGroup("target-group",
 
 
 # TLS Certificate
-certificate = aws.acm.Certificate("certificate",
-    domain_name=variables.dns_name,
-    validation_method="DNS",
-    opts=pulumi.ResourceOptions(provider=provider),
-    tags=standard_tags
-    )
+if variables.create_dns_record:
+    certificate = aws.acm.Certificate("certificate",
+        domain_name=variables.dns_name,
+        validation_method="DNS",
+        opts=pulumi.ResourceOptions(provider=provider),
+        tags=standard_tags
+        )
 
 
 # Certificate Validation
-certificate_validation = aws.route53.Record("certificate-validation",
-    name=certificate.domain_validation_options[0].resource_record_name,
-    type=certificate.domain_validation_options[0].resource_record_type,
-    zone_id=os.environ.get('ROUTE53_ZONE_ID'),
-    records=[certificate.domain_validation_options[0].resource_record_value],
-    ttl=60,
-    opts=pulumi.ResourceOptions(provider=provider)
-    )
+if variables.create_dns_record:
+    certificate_validation = aws.route53.Record("certificate-validation",
+        name=certificate.domain_validation_options[0].resource_record_name,
+        type=certificate.domain_validation_options[0].resource_record_type,
+        zone_id=os.environ.get('ROUTE53_ZONE_ID'),
+        records=[certificate.domain_validation_options[0].resource_record_value],
+        ttl=60,
+        opts=pulumi.ResourceOptions(provider=provider)
+        )
 
 
 # Certificate Validation DNS Record
-certificate_validation_dns_record = aws.acm.CertificateValidation("certificate-validation-dns-record",
-    certificate_arn=certificate.arn,
-    validation_record_fqdns=[
-        certificate_validation.fqdn
-    ],
-    opts=pulumi.ResourceOptions(provider=provider)
+if variables.create_dns_record:
+    certificate_validation_dns_record = aws.acm.CertificateValidation("certificate-validation-dns-record",
+        certificate_arn=certificate.arn,
+        validation_record_fqdns=[
+            certificate_validation.fqdn
+        ],
+        opts=pulumi.ResourceOptions(provider=provider)
+        )
+
+
+# HTTPS Listener with certificate
+if variables.create_dns_record:
+    listener = aws_native.elasticloadbalancingv2.Listener("https-listener",
+        load_balancer_arn=load_balancer.load_balancer_arn,
+        port=443,
+        protocol="HTTPS",
+        default_actions=[{
+            "type": "forward",
+            "target_group_arn": target_group.target_group_arn,
+        }],
+        certificates=[{
+            "certificateArn": certificate.arn
+        }],
+        opts=pulumi.ResourceOptions(provider=provider),
+    )
+
+# HTTP Listener 
+if not variables.create_dns_record:
+    listener = aws_native.elasticloadbalancingv2.Listener("http-listener",
+        load_balancer_arn=load_balancer.load_balancer_arn,
+        port=80,
+        protocol="HTTP",
+        default_actions=[{
+            "type": "forward",
+            "target_group_arn": target_group.target_group_arn,
+        }],
+        opts=pulumi.ResourceOptions(provider=provider),
     )
 
 
-# HTTPS Listener
-listener = aws_native.elasticloadbalancingv2.Listener("https-listener",
-    load_balancer_arn=load_balancer.load_balancer_arn,
-    port=443,
-    protocol="HTTPS",
-    default_actions=[{
-        "type": "forward",
-        "target_group_arn": target_group.target_group_arn,
-    }],
-    certificates=[{
-        "certificateArn": certificate.arn
-    }],
-    opts=pulumi.ResourceOptions(provider=provider),
-)
-
-
 # HTTP Listener with Redirection to HTTPS
-http_listener = aws_native.elasticloadbalancingv2.Listener("http-listener",
-    load_balancer_arn=load_balancer.load_balancer_arn,
-    port=80,
-    protocol="HTTP",
-    default_actions=[{
-        "type": "redirect",
-        "redirect_config": {
-            "protocol": "HTTPS",
-            "port": "443",
-            "status_code": "HTTP_301",
-        },
-    }],
-    opts=pulumi.ResourceOptions(provider=provider),
-)
+if variables.create_dns_record:
+    http_listener = aws_native.elasticloadbalancingv2.Listener("http-listener",
+        load_balancer_arn=load_balancer.load_balancer_arn,
+        port=80,
+        protocol="HTTP",
+        default_actions=[{
+            "type": "redirect",
+            "redirect_config": {
+                "protocol": "HTTPS",
+                "port": "443",
+                "status_code": "HTTP_301",
+            },
+        }],
+        opts=pulumi.ResourceOptions(provider=provider),
+    )
 
 
 # Attach the ASG to the Load Balancer
@@ -314,14 +343,19 @@ asg_attachment = aws.autoscaling.Attachment("asg-attachment",
 pulumi.export("loadBalancerDns", load_balancer.dns_name)
 
 # DNS Record
-dns_record = aws.route53.Record("dns-record",
-    name=variables.dns_name,
-    type="A",
-    zone_id=os.environ.get('ROUTE53_ZONE_ID'),
-    aliases=[{
-        "name": load_balancer.dns_name,
-        "zoneId": load_balancer.canonical_hosted_zone_id,
-        "evaluateTargetHealth": True,
-    }],
-    opts=pulumi.ResourceOptions(provider=provider),
+if variables.create_dns_record:
+    dns_record = aws.route53.Record("dns-record",
+        name=variables.dns_name,
+        type="A",
+        zone_id=os.environ.get('ROUTE53_ZONE_ID'),
+        aliases=[{
+            "name": load_balancer.dns_name,
+            "zoneId": load_balancer.canonical_hosted_zone_id,
+            "evaluateTargetHealth": True,
+        }],
+        opts=pulumi.ResourceOptions(provider=provider),
     )
+
+# Export the DNS Record
+if variables.create_dns_record:
+    pulumi.export("dnsRecord", dns_record.fqdn)

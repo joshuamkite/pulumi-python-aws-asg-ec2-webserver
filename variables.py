@@ -16,4 +16,6 @@ default_tags = {
     "Name": "pulumi-aws-ec2-asg"
 }
 
-dns_name = "ec2-asg.pulumi.joshuakite.co.uk"
+create_dns_record=True
+dns_name = "ec2-asg.pulumi.joshuakite.co.uk" # Has to exist and be valid but won't really be used unless `create_dns_record`` is set to True
+
