@@ -1,6 +1,6 @@
 # Pulumi AWS ASG
 
-This project uses Pulumi to deploy and manage AWS infrastructure, including an Auto Scaling Group (ASG) of EC2 instances, an Application Load Balancer (ALB), and DNS configuration using Route 53. The stack is designed to operate within an existing AWS VPC and utilizes specific subnets and security groups to control traffic. The infrastructure is configured to automatically scale EC2 instances and distribute traffic using the ALB, with DNS records managed via Route 53.
+This project uses Pulumi (Python) to deploy and manage AWS infrastructure, including an Auto Scaling Group (ASG) of EC2 instances, an Application Load Balancer (ALB), and DNS configuration using Route 53. The stack is designed to operate within an existing AWS VPC and utilizes specific subnets and security groups to control traffic. The infrastructure is configured to automatically scale EC2 instances and distribute traffic using the ALB, with DNS records managed via Route 53.
 
 - [Pulumi AWS ASG](#pulumi-aws-asg)
   - [Stack Overview](#stack-overview)
