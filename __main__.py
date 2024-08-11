@@ -3,6 +3,7 @@ import pulumi_aws as aws
 import pulumi_aws_native as aws_native
 import variables 
 import os
+import base64
 
 # Configure the AWS provider to use the specified profile
 provider = aws.Provider("aws", region=variables.aws_region)
@@ -165,37 +166,49 @@ instance_profile = aws.iam.InstanceProfile("instance-profile",
 
 
 # Launch Configuration
-launch_config = aws.ec2.LaunchConfiguration("launch-configuration",
+user_data_script = """#!/bin/bash
+dnf update -y
+dnf install -y httpd
+systemctl start httpd
+systemctl enable httpd
+echo "<h1>Hello World from $(hostname -f)</h1>" > /var/www/html/index.html
+"""
+
+encoded_user_data = base64.b64encode(user_data_script.encode('utf-8')).decode('utf-8')
+
+launch_template = aws.ec2.LaunchTemplate("launch-template",
     image_id=ami.id,
     instance_type=variables.instance_type,
-    security_groups=[security_group_instance.id],
-    user_data="""#!/bin/bash
-                dnf update -y
-                dnf install -y httpd
-                systemctl start httpd
-                systemctl enable httpd
-                echo "<h1>Hello World from $(hostname -f)</h1>" > /var/www/html/index.html
-        """,
+    user_data=encoded_user_data,
     opts=pulumi.ResourceOptions(provider=provider),
-    iam_instance_profile=instance_profile.name,
-    associate_public_ip_address=True,
+    iam_instance_profile={
+        "name": instance_profile.name
+    },
+    network_interfaces=[{
+        "deviceIndex": 0,
+        "associatePublicIpAddress": True,
+        "subnetId": subnets[0],
+        "securityGroups": [security_group_instance.id]
+    }],
 )
-
 
 # Convert standard_tags dictionary to a list of dictionaries with propagate_at_launch key
 asg_tags = [{"key": k, "value": v, "propagate_at_launch": "True"} for k, v in standard_tags.items()]
 
 # Auto Scaling Group
 asg = aws.autoscaling.Group("asg",
-    vpc_zone_identifiers= subnets,
-    launch_configuration=launch_config.id,
+    vpc_zone_identifiers=subnets,
+    launch_template={
+        "id": launch_template.id,
+        "version": "$Latest"  
+    },
     min_size=variables.ec2_config['min_size'],
     max_size=variables.ec2_config['max_size'],
     desired_capacity=variables.ec2_config['desired_capacity'],
     health_check_type="EC2",
     tags=asg_tags,
     opts=pulumi.ResourceOptions(provider=provider)
-    )
+)
 
 
 # Convert standard_tags dictionary to the required array format for load balancer tags
