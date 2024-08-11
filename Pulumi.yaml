@@ -1,0 +1,11 @@
+name: pulumi-aws-asg
+runtime:
+  name: python
+  options:
+    toolchain: pip
+    virtualenv: venv
+description: AWS Python Pulumi Autoscaling Group with DNS and SSM
+config:
+  pulumi:tags:
+    value:
+      pulumi:template: aws-python

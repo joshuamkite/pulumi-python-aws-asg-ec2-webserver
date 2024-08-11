@@ -1,0 +1,5 @@
+*.pyc
+venv/
+__pycache__/
+Pulumi.dev.yaml
+var_exports_jk
