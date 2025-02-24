@@ -9,6 +9,7 @@ I have also translated this stack:
 # Contents
 
 - [Pulumi AWS ASG](#pulumi-aws-asg)
+- [Contents](#contents)
   - [Stack Overview](#stack-overview)
     - [Features and Purpose](#features-and-purpose)
   - [Initial Setup](#initial-setup)
