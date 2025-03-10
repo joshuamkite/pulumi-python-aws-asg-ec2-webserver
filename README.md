@@ -1,14 +1,15 @@
-# Pulumi AWS ASG
+# Pulumi AWS ASG EC2 Webserver (Python Version)
 
-This project uses Pulumi (Python) to deploy and manage AWS infrastructure, including an Auto Scaling Group (ASG) of EC2 instances, an Application Load Balancer (ALB), and (optionally) DNS configuration using Route 53. The stack is designed to operate within an existing AWS VPC and utilizes specific subnets and security groups to control traffic. The infrastructure is configured to automatically scale EC2 instances and distribute traffic using the ALB, with optional DNS records managed via Route 53.
+This project uses Pulumi (Python) to deploy and manage AWS infrastructure, including an Auto Scaling Group (ASG) of EC2 instances, an Application Load Balancer (ALB), and (optionally) DNS configuration using Route 53. The stack is designed to operate within an existing AWS VPC and utilizes specific subnets and security groups to control traffic. The infrastructure is configured to automatically scale EC2 instances and distribute traffic using the ALB, with optional DNS records managed via Route 53. The ASG serves a basic hello world webpage. The instances are managed using AWS Systems Manager (SSM) without the need for SSH access or bastion hosts.
 
-I have also translated this stack:
+This is the Python implementation of the AWS ASG infrastructure. Other versions are available:
 - [TypeScript version](https://github.com/joshuamkite/pulumi-typescript-aws-asg-ec2-webserver)
 - [C# version](https://github.com/joshuamkite/pulumi-csharp-aws-asg-ec2-webserver)
+- [Go version](https://github.com/joshuamkite/pulumi-go-aws-asg-ec2-webserver)
 
 # Contents
 
-- [Pulumi AWS ASG](#pulumi-aws-asg)
+- [Pulumi AWS ASG EC2 Webserver (Python Version)](#pulumi-aws-asg-ec2-webserver-python-version)
 - [Contents](#contents)
   - [Stack Overview](#stack-overview)
     - [Features and Purpose](#features-and-purpose)
